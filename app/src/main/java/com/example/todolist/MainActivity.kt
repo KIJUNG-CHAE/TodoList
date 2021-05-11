@@ -1,5 +1,7 @@
 package com.example.todolist
 
+import android.graphics.Paint
+import android.graphics.Typeface
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -23,18 +25,38 @@ class MainActivity : AppCompatActivity() {
 
         // 어뎁터에 임시로 데이터를 넣는다
         data.add(Todo("숙제"))
-        data.add(Todo("청소"))
+        data.add(Todo("청소", true))
 
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = TodoAdapter(data,
             onClickDeleteIcon = {
                 deleteTodo(it)
+            },
+            onClickItem = {
+
             }
         )
+
+        binding.recyclerView.apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = TodoAdapter(data,
+                onClickDeleteIcon = {
+                    deleteTodo(it)
+                },
+                onClickItem = {
+                    toggleTodo(it)
+                }
+            )
+        }
         //adapter 처음 적용하면 안될 수도 있는데 rebuilding하자
         binding.addButton.setOnClickListener() {
             addTodo()
         }
+    }
+
+    private fun toggleTodo(todo: Todo) {
+        todo.isDone = !todo.isDone
+        binding.recyclerView.adapter?.notifyDataSetChanged()
     }
 
     private fun addTodo() {
@@ -61,7 +83,8 @@ data class Todo(
 
 class TodoAdapter(
     private val dataSet: List<Todo>,
-    val onClickDeleteIcon: (todo: Todo) -> Unit //외부로 데이터를 넘기기 위한 함수
+    val onClickDeleteIcon: (todo: Todo) -> Unit, //외부로 데이터를 넘기기 위한 함수
+    val onClickItem: (todo: Todo) -> Unit //외부로 데이터를 넘기기 위한 함수
 ) :
     RecyclerView.Adapter<TodoAdapter.TodoViewHolder>() {
 
@@ -86,10 +109,28 @@ class TodoAdapter(
     }
 
     override fun onBindViewHolder(viewHolder: TodoViewHolder, position: Int) {
+        //기본적인 뷰 내용을 담당함
         val todo = dataSet[position]
         viewHolder.binding.todoText.text = todo.text
+
+        //완료 사선, 글씨체 구현
+        if(todo.isDone) {
+            viewHolder.binding.todoText.apply { //apply this로 받
+                this.paintFlags = this.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
+                setTypeface(null, Typeface.ITALIC)
+            }
+        }else{
+            viewHolder.binding.todoText.apply {
+                this.paintFlags = 0
+                setTypeface(null, Typeface.NORMAL)
+            }
+        }
+
         viewHolder.binding.deleteImageView.setOnClickListener(){
             onClickDeleteIcon.invoke(todo)
+        }
+        viewHolder.binding.root.setOnClickListener(){
+            onClickItem.invoke(todo) //invoke 함수를 실행
         }
         // 클래스의 text를 받아
         //viewHolder.textView.text = dataSet[position].text
