@@ -8,68 +8,48 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.activity.viewModels
+import androidx.lifecycle.ViewModel
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.todolist.databinding.ActivityMainBinding
 import com.example.todolist.databinding.ItemTodoBinding
 
 class MainActivity : AppCompatActivity() {
-
-    private val data = arrayListOf<Todo>()
     private lateinit var binding: ActivityMainBinding
+
+    val viewModel: MainViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         val view = binding.root
         setContentView(view)
 
-        // 어뎁터에 임시로 데이터를 넣는다
-        data.add(Todo("숙제"))
-        data.add(Todo("청소", true))
-
-        binding.recyclerView.layoutManager = LinearLayoutManager(this)
-        binding.recyclerView.adapter = TodoAdapter(data,
-            onClickDeleteIcon = {
-                deleteTodo(it)
-            },
-            onClickItem = {
-
-            }
-        )
+//         어뎁터에 임시로 데이터를 넣는다
+//        data.add(Todo("숙제"))
+//        data.add(Todo("청소", true))
 
         binding.recyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
-            adapter = TodoAdapter(data,
+            adapter = TodoAdapter(
+                viewModel.data,
                 onClickDeleteIcon = {
-                    deleteTodo(it)
+                    viewModel.deleteTodo(it)
+                    binding.recyclerView.adapter?.notifyDataSetChanged()
                 },
                 onClickItem = {
-                    toggleTodo(it)
+                    viewModel.toggleTodo(it)
+                    binding.recyclerView.adapter?.notifyDataSetChanged()
                 }
             )
         }
         //adapter 처음 적용하면 안될 수도 있는데 rebuilding하자
         binding.addButton.setOnClickListener() {
-            addTodo()
+            val todo = Todo(binding.editText.text.toString())
+            viewModel.addTodo(todo)
+            binding.recyclerView.adapter?.notifyDataSetChanged()
         }
-    }
-
-    private fun toggleTodo(todo: Todo) {
-        todo.isDone = !todo.isDone
-        binding.recyclerView.adapter?.notifyDataSetChanged()
-    }
-
-    private fun addTodo() {
-        val todo = Todo(binding.editText.text.toString())
-        data.add(todo)
-
-        //데이터가 변경되었음을 어뎁터에 알려줘야함 / ? << 안전한 호출을 위해 null이면 어떡할
-        binding.recyclerView.adapter?.notifyDataSetChanged()
-    }
-
-    private fun deleteTodo(todo: Todo) {
-        data.remove(todo)
-        binding.recyclerView.adapter?.notifyDataSetChanged()
     }
 }
 
@@ -132,10 +112,31 @@ class TodoAdapter(
         viewHolder.binding.root.setOnClickListener(){
             onClickItem.invoke(todo) //invoke 함수를 실행
         }
-        // 클래스의 text를 받아
+        // 클래스의 text를 받아옴
         //viewHolder.textView.text = dataSet[position].text
     }
 
     override fun getItemCount() = dataSet.size
 
+}
+
+class MainViewModel: ViewModel(){
+    //메인 액티비티의 데이터관련을 뷰모델로 다 몰고 액티비티에서는 ui적 요소만관리
+    //왜냐하면 rotate같은 행위가 추가되면 액티비티는 destory되고 create되기 때문에 다 저장한 데이터가 다 날라간다.
+    //뷰모델의 life cycle은 finish전까지 유효하기 때문에 액티비티의 생명주기와 무관하게 데이터를 관리할 수 있다.
+    val data = arrayListOf<Todo>()
+
+    fun toggleTodo(todo: Todo) {
+        todo.isDone = !todo.isDone
+    }
+
+    fun addTodo(todo: Todo) {
+        data.add(todo)
+
+        //데이터가 변경되었음을 어뎁터에 알려줘야함 / ? << 안전한 호출을 위해 null이면 어떡할
+    }
+
+    fun deleteTodo(todo: Todo) {
+        data.remove(todo)
+    }
 }
