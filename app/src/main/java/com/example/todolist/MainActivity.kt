@@ -9,6 +9,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.activity.viewModels
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModel
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -33,14 +36,12 @@ class MainActivity : AppCompatActivity() {
         binding.recyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = TodoAdapter(
-                viewModel.data,
+                emptyList(),
                 onClickDeleteIcon = {
                     viewModel.deleteTodo(it)
-                    binding.recyclerView.adapter?.notifyDataSetChanged()
                 },
                 onClickItem = {
                     viewModel.toggleTodo(it)
-                    binding.recyclerView.adapter?.notifyDataSetChanged()
                 }
             )
         }
@@ -48,8 +49,12 @@ class MainActivity : AppCompatActivity() {
         binding.addButton.setOnClickListener() {
             val todo = Todo(binding.editText.text.toString())
             viewModel.addTodo(todo)
-            binding.recyclerView.adapter?.notifyDataSetChanged()
         }
+
+        //관창 -> ui 업데이트
+        viewModel.todoLiveData.observe(this, Observer {
+            (binding.recyclerView.adapter as TodoAdapter).setData(it)
+        })
     }
 }
 
@@ -62,7 +67,7 @@ data class Todo(
 //리사이클러뷰에 어뎁터를 상속받는 나만의 어뎁터를 만들어야함 어뎁터 이름수
 
 class TodoAdapter(
-    private val dataSet: List<Todo>,
+    private var dataSet: List<Todo>,
     val onClickDeleteIcon: (todo: Todo) -> Unit, //외부로 데이터를 넘기기 위한 함수
     val onClickItem: (todo: Todo) -> Unit //외부로 데이터를 넘기기 위한 함수
 ) :
@@ -118,25 +123,41 @@ class TodoAdapter(
 
     override fun getItemCount() = dataSet.size
 
+    //라이브데이터 값이 변경되었을 때 필요한 메소 - 데이터갱신
+    fun setData(newData:List<Todo>){
+        dataSet = newData
+        notifyDataSetChanged()
+    }
+
 }
 
 class MainViewModel: ViewModel(){
+    //view model
     //메인 액티비티의 데이터관련을 뷰모델로 다 몰고 액티비티에서는 ui적 요소만관리
     //왜냐하면 rotate같은 행위가 추가되면 액티비티는 destory되고 create되기 때문에 다 저장한 데이터가 다 날라간다.
     //뷰모델의 life cycle은 finish전까지 유효하기 때문에 액티비티의 생명주기와 무관하게 데이터를 관리할 수 있다.
-    val data = arrayListOf<Todo>()
+
+    //live data
+    //데이터를 관찰하고 있다가 데이터가 바뀌면 적용할 수 있도록 해주는 간편한
+    //상태를 변경가능하고 관찰가능한 라이브데이터 객체
+    //화면 갱신코드를 모아놓을 수 있고, 어느타이밍에 화면을 갱신해줘야하는 것을 신경쓰지 않아도 된다.
+
+    val todoLiveData = MutableLiveData<List<Todo>>()
+    private val data = arrayListOf<Todo>()
 
     fun toggleTodo(todo: Todo) {
         todo.isDone = !todo.isDone
+        todoLiveData.value = data
     }
 
     fun addTodo(todo: Todo) {
         data.add(todo)
-
-        //데이터가 변경되었음을 어뎁터에 알려줘야함 / ? << 안전한 호출을 위해 null이면 어떡할
+        //value를 변경된 최신 데이터로 바꾸겠다
+        todoLiveData.value = data
     }
 
     fun deleteTodo(todo: Todo) {
         data.remove(todo)
+        todoLiveData.value = data
     }
 }
